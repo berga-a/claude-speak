@@ -38,7 +38,10 @@ case "${1:-}" in
     alive || { echo "nothing playing"; exit 0; }
     halt; echo "stopped"; exit 0 ;;
   follow)
-    exec tail -n +1 -f "$STREAM" ;;
+    # Tailing only makes sense on a terminal; from a slash command or a pipe it
+    # would block forever, so dump what has been spoken so far and exit.
+    if [ -t 1 ]; then exec tail -n +1 -f "$STREAM"; else cat "$STREAM"; fi
+    exit 0 ;;
   status)
     if alive; then echo "playing: $(cat "$NOW" 2>/dev/null)"; else echo "idle"; fi; exit 0 ;;
 esac
