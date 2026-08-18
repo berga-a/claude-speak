@@ -6,3 +6,4 @@ models-kokoro/
 __pycache__/
 *.pyc
 .engine
+venv-dev/

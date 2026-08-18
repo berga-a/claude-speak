@@ -57,21 +57,20 @@ class Karaoke:
     """Emits each line when the audio it labels has been handed to the player."""
 
     def __init__(self, index_path, now_path):
-        self.fh = open(index_path) if index_path else None
+        # Binary mode: the index is written concurrently, so partial lines are
+        # expected, and arithmetic on a text-mode tell() is not valid.
+        self.fh = open(index_path, "rb") if index_path else None
         self.now_path = now_path
         self.pending = []
+        self.buf = b""
 
     def _refill(self):
         if not self.fh:
             return
-        while True:
-            line = self.fh.readline()
-            if not line:
-                return
-            if not line.endswith("\n"):      # partial write; rewind and retry later
-                self.fh.seek(self.fh.tell() - len(line))
-                return
-            offset, _, text = line.rstrip("\n").partition("\t")
+        self.buf += self.fh.read() or b""
+        while b"\n" in self.buf:
+            raw, _, self.buf = self.buf.partition(b"\n")
+            offset, _, text = raw.decode("utf-8", "replace").partition("\t")
             try:
                 self.pending.append((int(offset), text))
             except ValueError:

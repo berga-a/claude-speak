@@ -110,6 +110,17 @@ stutter. piper has room to spare.
 - The duration estimate is derived from a measured characters-per-second rate, so
   it is within about a second on normal replies but drifts on very short ones.
 
+## Tests
+
+```bash
+python3 -m venv venv-dev && ./venv-dev/bin/python -m pip install -r requirements-dev.txt
+./venv-dev/bin/python -m pytest
+```
+
+The suite covers the pure logic — markdown conversion, the character cap, transcript
+extraction, and the karaoke index — with no audio device, engine, or model required, so
+it runs anywhere in well under a second.
+
 ## Credits
 
 Speech by [piper](https://github.com/OHF-Voice/piper1-gpl) (GPL) and

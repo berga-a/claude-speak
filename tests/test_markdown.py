@@ -1,0 +1,50 @@
+"""Markdown reaching the voice must sound like speech, not like source."""
+import pytest
+
+
+@pytest.mark.parametrize("md,expected", [
+    ("Run `ls -la` now.",            "Run ls -la now."),
+    ("Edit `gate.py` now.",          "Edit gate point py now."),
+    ("`a.b.c`",                      "a point b point c."),
+    ("One. Two.",                    "One. Two."),
+    ("**Bold** here.",               "Bold here."),
+    ("***Both*** here.",             "Both here."),
+    ("See [the docs](https://x.io).", "See the docs."),
+    ("Math 2 * 3 stays.",            "Math 2 times 3 stays."),
+])
+def test_inline_markup_reads_as_words(spoken, md, expected):
+    assert spoken(md) == expected
+
+
+@pytest.mark.parametrize("md", [
+    "**Bold spanning\ntwo lines** here.",   # emphasis is matched per line
+    "**Bold with * star** inside.",         # body excludes stars
+    "***Bold italic*** across.",
+    "A **bold** and **another** on one line.",
+])
+def test_no_asterisk_ever_reaches_the_voice(spoken, md):
+    assert "*" not in spoken(md)
+
+
+@pytest.mark.parametrize("identifier", ["a_b_c", "file_name.py", "CLAUDE_SPEAK_MAX"])
+def test_underscores_survive_so_identifiers_stay_intact(spoken, identifier):
+    assert identifier.split(".")[0] in spoken(f"Use {identifier} here.")
+
+
+@pytest.mark.parametrize("md,shape", [
+    ("Before.\n\n```python\nprint('x')\n```\n\nAfter.", ["say", "pause", "say"]),
+    ("Before.\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter.", ["say", "pause", "say"]),
+    ("Before.\n\n---\n\nAfter.", ["say", "say"]),
+])
+def test_unspeakable_blocks_become_silence(kinds, md, shape):
+    assert kinds(md) == shape
+
+
+def test_code_block_contents_are_never_spoken(spoken):
+    assert "print" not in spoken("Before.\n\n```python\nprint('x')\n```\n\nAfter.")
+
+
+def test_headings_and_bullets_lose_their_markers(spoken):
+    out = spoken("## Title\n\n- first\n- second")
+    assert "#" not in out and "- " not in out
+    assert "Title" in out
