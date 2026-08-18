@@ -1,5 +1,7 @@
 # claude-speak
 
+[![tests](https://github.com/berga-a/claude-speak/actions/workflows/tests.yml/badge.svg)](https://github.com/berga-a/claude-speak/actions/workflows/tests.yml)
+
 Read Claude Code's replies out loud, on demand — with a pause that actually pauses.
 
 Local neural TTS, no API keys, no audio leaving your machine.
@@ -11,8 +13,11 @@ Local neural TTS, no API keys, no audio leaving your machine.
 /speak stop       abandon it
 /speak -n 3       read an earlier reply
 /speak follow     watch the text scroll in time with the audio
+/speak status     is it speaking, and where has it got to
 /speak engine kokoro   switch engine, persistently
 ```
+
+`resume` accepts `unpause`, and `stop` accepts `off`.
 
 Every invocation reports how long it will take: `speaking [kokoro] 990 chars, ~1m0s`.
 
@@ -120,6 +125,44 @@ python3 -m venv venv-dev && ./venv-dev/bin/python -m pip install -r requirements
 The suite covers the pure logic — markdown conversion, the character cap, transcript
 extraction, and the karaoke index — with no audio device, engine, or model required, so
 it runs anywhere in well under a second.
+
+## Troubleshooting
+
+**Nothing is spoken, and no error.** The command needs an audio player it can pipe raw
+PCM into. Check with `aplay --version`, and install `alsa-utils`, `pipewire-utils`, `sox`
+or `ffmpeg` if none is present.
+
+**`/speak` is not a known command.** Slash commands are read when the session starts.
+Restart Claude Code after `install.sh`.
+
+**Speech does not stop when I send a new message.** The hook is registered in
+`settings.json` but hooks are also loaded at session start, so it only takes effect in a
+new session. Confirm with `jq '.hooks.UserPromptSubmit' ~/.claude/settings.json`.
+
+**Kokoro stutters when the machine is busy.** Kokoro synthesises at roughly 1.5x
+realtime, so a heavy build competing for CPU can starve playback. Switch with
+`claude-speak engine piper`, which runs about 12x realtime.
+
+**It speaks the wrong message.** `-n` counts assistant replies, and short
+acknowledgements count. Use `-n 2`, `-n 3` to walk back, or `follow` to see what was read.
+
+**`pip: cannot execute: required file not found` after moving the repo.** A virtualenv
+records absolute paths, so its console scripts break when the directory moves. Delete
+`venv-piper/` and `venv-kokoro/` and re-run `install.sh`; the models in `voices/` and
+`models-kokoro/` are kept and will not be downloaded again.
+
+## Contributing
+
+```
+bin/claude-speak     driver: state, playback control, engine selection
+src/speak.py         transcript -> speakable segments -> PCM, plus the sync index
+src/gate.py          PCM pump, silence-on-pause, karaoke output
+tests/               pure logic only: no audio device, engine or model required
+```
+
+Run `./venv-dev/bin/python -m pytest` before opening a pull request. New markdown
+handling belongs in `INLINE` or `segments()` in `src/speak.py`, with a case added to
+`tests/test_markdown.py`.
 
 ## Credits
 

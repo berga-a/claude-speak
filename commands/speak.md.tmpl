@@ -9,10 +9,13 @@ The command above already ran during prompt expansion — do NOT run it again.
 Report its result to the user in a few words. Say nothing else.
 
 Arguments the user may pass:
-- (none)      speak the last reply
-- `pause`     suspend playback exactly where it is
-- `resume`    continue from the same sample
-- `stop`      abandon playback
-- `-n 2`      speak the 2nd-most-recent reply
-- `follow`    tail the spoken text, in sync with the audio
-- any text    speak that text verbatim instead
+- (none)            speak the last reply
+- `pause`           suspend playback exactly where it is
+- `resume`          continue from the same sample (alias: `unpause`)
+- `stop`            abandon playback (alias: `off`)
+- `-n 2`            speak the 2nd-most-recent reply
+- `follow`          show the text spoken so far, in sync with the audio
+- `status`          report whether it is speaking, and the current line
+- `engine`          print the current engine
+- `engine kokoro`   switch engine persistently (`piper` or `kokoro`)
+- any other text    speak that text verbatim instead
