@@ -80,9 +80,15 @@ def nth_reply(transcript: Path, nth: int) -> str:
 
 # ---------- markdown -> segments ----------
 
+def _inline_code(m):
+    """Read inline code as words. A dot inside an identifier is a separator, not a
+    sentence end, so name it rather than letting the voice pause on it."""
+    return m.group(1).replace(".", " point ")
+
+
 INLINE = [
     (re.compile(r"!?\[([^\]]*)\]\([^)]*\)"), r"\1"),          # links/images -> label
-    (re.compile(r"`([^`]+)`"), r"\1"),                        # inline code: read the content
+    (re.compile(r"`([^`]+)`"), _inline_code),                 # inline code: read the content
     (re.compile(r"\*\*([^*]+)\*\*"), r"\1"),
     (re.compile(r"(?<!\w)[*_]([^*_]+)[*_](?!\w)"), r"\1"),
     (re.compile(r"^\s{0,3}#{1,6}\s*"), ""),                   # heading marker
