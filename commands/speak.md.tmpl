@@ -1,0 +1,18 @@
+---
+description: Read Claude's last reply out loud (neural TTS, with pause/resume)
+allowed-tools: Bash(__BIN__:*)
+---
+
+Speech output: !`__BIN__ $ARGUMENTS`
+
+The command above already ran during prompt expansion — do NOT run it again.
+Report its result to the user in a few words. Say nothing else.
+
+Arguments the user may pass:
+- (none)      speak the last reply
+- `pause`     suspend playback exactly where it is
+- `resume`    continue from the same sample
+- `stop`      abandon playback
+- `-n 2`      speak the 2nd-most-recent reply
+- `follow`    tail the spoken text, in sync with the audio
+- any text    speak that text verbatim instead

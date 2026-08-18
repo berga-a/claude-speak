@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# UserPromptSubmit: silence any in-flight speech when the user sends something new.
+# Skips /speak itself, whose own prompt would otherwise cancel the playback it starts.
+input=$(cat)
+prompt=$(jq -r '.prompt // empty' <<<"$input" 2>/dev/null)
+case "$prompt" in
+  /speak*|speak) exit 0 ;;
+esac
+__BIN__ stop >/dev/null 2>&1
+exit 0

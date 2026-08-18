@@ -1,0 +1,7 @@
+# Engine environments and voice models are fetched by install.sh, never committed.
+venv-piper/
+venv-kokoro/
+voices/
+models-kokoro/
+__pycache__/
+*.pyc

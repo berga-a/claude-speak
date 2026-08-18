@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# claude-speak — read Claude Code's last reply out loud, with a real pause.
+#
+#   claude-speak            speak the last reply      claude-speak pause    hold it
+#   claude-speak -n 2       an earlier reply          claude-speak resume   continue
+#   claude-speak "text"     speak that text           claude-speak stop     abandon
+#   claude-speak follow     tail the synced text as it is spoken
+#
+# Env: CLAUDE_SPEAK_ENGINE=piper|kokoro  _VOICE  _SPEED  _MAX  _MODEL  _QUIET
+set -u
+
+ROOT=$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/.." && pwd)
+CFG=${CLAUDE_CONFIG_DIR:-$HOME/.claude}
+ENGINE=${CLAUDE_SPEAK_ENGINE:-piper}
+SPEED=${CLAUDE_SPEAK_SPEED:-1.0}
+MAX=${CLAUDE_SPEAK_MAX:-2000}
+STATE=${XDG_RUNTIME_DIR:-/tmp}/claude-speak
+PIDF=$STATE/pids
+INDEX=$STATE/index
+NOW=$STATE/now.txt
+STREAM=$STATE/stream.log
+ERR=$STATE/err
+mkdir -p "$STATE"
+
+gate_pid()  { sed -n 2p "$PIDF" 2>/dev/null; }
+group_pid() { sed -n 3p "$PIDF" 2>/dev/null; }
+alive()     { local g; g=$(gate_pid); [ -n "$g" ] && kill -0 "$g" 2>/dev/null; }
+halt()      { kill -USR2 "$(gate_pid)" 2>/dev/null; kill -TERM -"$(group_pid)" 2>/dev/null; rm -f "$PIDF"; }
+
+case "${1:-}" in
+  pause)
+    alive || { echo "nothing playing"; exit 0; }
+    kill -USR1 "$(gate_pid)" 2>/dev/null; echo "paused"; exit 0 ;;
+  resume|unpause)
+    alive || { echo "nothing to resume"; exit 0; }
+    kill -USR2 "$(gate_pid)" 2>/dev/null; echo "resumed"; exit 0 ;;
+  stop|off)
+    alive || { echo "nothing playing"; exit 0; }
+    halt; echo "stopped"; exit 0 ;;
+  follow)
+    exec tail -n +1 -f "$STREAM" ;;
+  status)
+    if alive; then echo "playing: $(cat "$NOW" 2>/dev/null)"; else echo "idle"; fi; exit 0 ;;
+esac
+
+case "$ENGINE" in
+  kokoro) PY=$ROOT/venv-kokoro/bin/python
+          MODEL=${CLAUDE_SPEAK_MODEL:-$ROOT/models-kokoro/kokoro-v1.0.onnx}
+          VOICE=${CLAUDE_SPEAK_VOICE:-af_heart}; RATE=24000 ;;
+  piper)  PY=$ROOT/venv-piper/bin/python
+          MODEL=${CLAUDE_SPEAK_MODEL:-$ROOT/voices/en_US-lessac-high.onnx}
+          VOICE=-
+          RATE=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['audio']['sample_rate'])" "$MODEL.json" 2>/dev/null) ;;
+  *)      echo "unknown engine: $ENGINE" >&2; exit 1 ;;
+esac
+[ -x "$PY" ] || { echo "engine not installed: $PY (run install.sh)" >&2; exit 1; }
+[ -f "$MODEL" ] || { echo "voice model missing: $MODEL (run install.sh)" >&2; exit 1; }
+[ -n "${RATE:-}" ] || { echo "could not read sample rate from $MODEL.json" >&2; exit 1; }
+
+nth=1
+if [ "${1:-}" = "-n" ]; then nth=${2:-1}; shift 2 || true; fi
+ARGS=(--engine "$ENGINE" --model "$MODEL" --voice "$VOICE" --speed "$SPEED" --max "$MAX" --nth "$nth")
+[ $# -gt 0 ] && [ -n "$1" ] && ARGS+=(--text "$*")
+
+alive && halt
+: > "$ERR"; : > "$INDEX"; : > "$STREAM"; : > "$NOW"
+FIFO=$STATE/pcm; rm -f "$FIFO"; mkfifo "$FIFO"
+
+setsid bash -c '
+  "$1" "$2" "${@:3}" --index "'"$INDEX"'" > "'"$FIFO"'" 2>>"'"$ERR"'" &
+  sp=$!
+  python3 "'"$ROOT"'/src/gate.py" '"$RATE"' "'"$INDEX"'" "'"$NOW"'" < "'"$FIFO"'" >> "'"$STREAM"'" 2>/dev/null &
+  gp=$!
+  printf "%s\n%s\n%s\n" "$sp" "$gp" "$$" > "'"$PIDF"'"
+  wait $sp; wait $gp; rm -f "'"$PIDF"'"
+' _ "$PY" "$ROOT/src/speak.py" "${ARGS[@]}" </dev/null >/dev/null 2>&1 &
+
+# Wait for the synth front-end to report, so errors surface instead of vanishing.
+for _ in $(seq 40); do grep -q . "$ERR" 2>/dev/null && break; sleep 0.5; done
+line=$(head -1 "$ERR" 2>/dev/null)
+case "$line" in
+  rate=*) set -- $line
+          echo "speaking [$ENGINE] ${2#chars=} of ${3#total=} chars" ;;
+  "")     echo "speaking [$ENGINE] (starting)"; exit 0 ;;
+  *)      echo "$line" >&2; exit 1 ;;
+esac
+
+# Echo the text being read, unless muted.
+[ -n "${CLAUDE_SPEAK_QUIET:-}" ] && exit 0
+"$PY" "$ROOT/src/speak.py" "${ARGS[@]}" --dry-run 2>/dev/null
