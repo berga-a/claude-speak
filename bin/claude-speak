@@ -11,7 +11,7 @@ set -u
 
 ROOT=$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/.." && pwd)
 CFG=${CLAUDE_CONFIG_DIR:-$HOME/.claude}
-ENGINE=${CLAUDE_SPEAK_ENGINE:-piper}
+ENGINE=${CLAUDE_SPEAK_ENGINE:-$(cat "$ROOT/.engine" 2>/dev/null || echo piper)}
 SPEED=${CLAUDE_SPEAK_SPEED:-1.0}
 MAX=${CLAUDE_SPEAK_MAX:-0}   # 0 = no cap; stop/pause are the real controls
 STATE=${XDG_RUNTIME_DIR:-/tmp}/claude-speak
@@ -42,6 +42,14 @@ case "${1:-}" in
     # would block forever, so dump what has been spoken so far and exit.
     if [ -t 1 ]; then exec tail -n +1 -f "$STREAM"; fi
     if alive; then cat "$STREAM"; else echo "idle — nothing playing"; fi
+    exit 0 ;;
+  engine)
+    if [ -n "${2:-}" ]; then
+      case "$2" in piper|kokoro) echo "$2" > "$ROOT/.engine"; echo "engine set to $2" ;;
+                   *) echo "unknown engine: $2" >&2; exit 1 ;; esac
+    else
+      echo "$ENGINE"
+    fi
     exit 0 ;;
   status)
     if alive; then echo "playing: $(cat "$NOW" 2>/dev/null)"; else echo "idle"; fi; exit 0 ;;
@@ -84,7 +92,13 @@ for _ in $(seq 40); do grep -q . "$ERR" 2>/dev/null && break; sleep 0.5; done
 line=$(head -1 "$ERR" 2>/dev/null)
 case "$line" in
   rate=*) set -- $line
-          echo "speaking [$ENGINE] ${2#chars=} of ${3#total=} chars" ;;
+          secs=${4#secs=}
+          if [ "$secs" -ge 60 ] 2>/dev/null; then
+            dur="~$((secs / 60))m$((secs % 60))s"
+          else
+            dur="~${secs}s"
+          fi
+          echo "speaking [$ENGINE] ${2#chars=} of ${3#total=} chars, $dur" ;;
   "")     echo "speaking [$ENGINE] (starting)"; exit 0 ;;
   *)      echo "$line" >&2; exit 1 ;;
 esac

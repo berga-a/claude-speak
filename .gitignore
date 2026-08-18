@@ -5,3 +5,4 @@ voices/
 models-kokoro/
 __pycache__/
 *.pyc
+.engine

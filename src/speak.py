@@ -14,6 +14,10 @@ from pathlib import Path
 
 PAUSE_BLOCK = 2.0  # seconds of silence standing in for a code block / table
 
+# Measured on a 1200-character sample at speed 1.0; used only for the up-front
+# duration estimate, since the true length is not known until synthesis is done.
+CHARS_PER_SEC = {"piper": 17.6, "kokoro": 16.4}
+
 
 def config_dir() -> Path:
     return Path(os.environ.get("CLAUDE_CONFIG_DIR") or (Path.home() / ".claude"))
@@ -196,7 +200,9 @@ def main():
     if a.dry_run:
         for kind, val in segs:
             print(f"[pause {val}s]" if kind == "pause" else val)
-        print(f"--- {spoken}/{total} chars", file=sys.stderr)
+        gaps = sum(v for k, v in segs if k == "pause")
+        secs = round(spoken / (CHARS_PER_SEC[a.engine] * a.speed) + gaps)
+        print(f"--- {spoken}/{total} chars, ~{secs}s", file=sys.stderr)
         return
 
     out = sys.stdout.buffer
@@ -225,7 +231,9 @@ def main():
             samples, _ = k.create(t, voice=a.voice, speed=a.speed, lang="en-us")
             return (np.clip(samples, -1, 1) * 32767).astype("<i2").tobytes()
 
-    print(f"rate={rate} chars={spoken} total={total}", file=sys.stderr)
+    gaps = sum(v for k, v in segs if k == "pause")
+    secs = round(spoken / (CHARS_PER_SEC[a.engine] * a.speed) + gaps)
+    print(f"rate={rate} chars={spoken} total={total} secs={secs}", file=sys.stderr)
 
     for kind, val in segs:
         if kind == "pause":

@@ -11,7 +11,10 @@ Local neural TTS, no API keys, no audio leaving your machine.
 /speak stop       abandon it
 /speak -n 3       read an earlier reply
 /speak follow     watch the text scroll in time with the audio
+/speak engine kokoro   switch engine, persistently
 ```
+
+Every invocation reports how long it will take: `speaking [kokoro] 990 chars, ~1m0s`.
 
 ## Why another one
 
@@ -78,7 +81,9 @@ paces itself to realtime rather than spinning.
 | start-up | near-instant | ~1s model load, ~3s to first audio |
 | size | ~110 MB | ~340 MB |
 
-piper is the default. `CLAUDE_SPEAK_ENGINE=kokoro` switches per invocation.
+`claude-speak engine kokoro` switches persistently (stored in `.engine`);
+`CLAUDE_SPEAK_ENGINE=kokoro` overrides for one invocation. piper is the default
+on a fresh install, since it is the one `install.sh` sets up without `--kokoro`.
 
 Kokoro's 1.5x margin over realtime is thin: start a heavy build mid-sentence and it can
 stutter. piper has room to spare.
@@ -87,7 +92,7 @@ stutter. piper has room to spare.
 
 | variable | default | meaning |
 |---|---|---|
-| `CLAUDE_SPEAK_ENGINE` | `piper` | `piper` or `kokoro` |
+| `CLAUDE_SPEAK_ENGINE` | `.engine`, else `piper` | `piper` or `kokoro` |
 | `CLAUDE_SPEAK_VOICE` | `af_heart` | Kokoro voice name |
 | `CLAUDE_SPEAK_MODEL` | bundled | path to a piper `.onnx` |
 | `CLAUDE_SPEAK_SPEED` | `1.0` | >1 faster, <1 slower |
@@ -102,6 +107,8 @@ stutter. piper has room to spare.
 - Linux is the tested platform. macOS should work through `sox` or `ffplay` but is
   untested.
 - `-n` counts assistant replies, and short acknowledgements count as replies.
+- The duration estimate is derived from a measured characters-per-second rate, so
+  it is within about a second on normal replies but drifts on very short ones.
 
 ## Credits
 
