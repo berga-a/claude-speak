@@ -91,7 +91,7 @@ stutter. piper has room to spare.
 | `CLAUDE_SPEAK_VOICE` | `af_heart` | Kokoro voice name |
 | `CLAUDE_SPEAK_MODEL` | bundled | path to a piper `.onnx` |
 | `CLAUDE_SPEAK_SPEED` | `1.0` | >1 faster, <1 slower |
-| `CLAUDE_SPEAK_MAX` | `2000` | max characters, trimmed on a sentence boundary |
+| `CLAUDE_SPEAK_MAX` | `0` | character cap; `0` reads the whole reply |
 | `CLAUDE_SPEAK_QUIET` | unset | suppress echoing the text in the command output |
 
 ## Limitations

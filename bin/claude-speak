@@ -13,7 +13,7 @@ ROOT=$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/.." && pwd)
 CFG=${CLAUDE_CONFIG_DIR:-$HOME/.claude}
 ENGINE=${CLAUDE_SPEAK_ENGINE:-piper}
 SPEED=${CLAUDE_SPEAK_SPEED:-1.0}
-MAX=${CLAUDE_SPEAK_MAX:-2000}
+MAX=${CLAUDE_SPEAK_MAX:-0}   # 0 = no cap; stop/pause are the real controls
 STATE=${XDG_RUNTIME_DIR:-/tmp}/claude-speak
 PIDF=$STATE/pids
 INDEX=$STATE/index

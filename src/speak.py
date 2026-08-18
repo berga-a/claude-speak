@@ -122,7 +122,7 @@ def segments(md: str):
 def cap(segs, maxchars):
     """Trim to maxchars on a sentence boundary. Returns (segs, spoken, total)."""
     total = sum(len(t) for k, t in segs if k == "say")
-    if total <= maxchars:
+    if maxchars <= 0 or total <= maxchars:
         return segs, total, total
     kept, used = [], 0
     for kind, val in segs:
@@ -160,7 +160,8 @@ def main():
     ap.add_argument("--voice", default="af_heart")
     ap.add_argument("--speed", type=float, default=1.0)
     ap.add_argument("--nth", type=int, default=1)
-    ap.add_argument("--max", type=int, default=2000)
+    ap.add_argument("--max", type=int, default=0,
+                    help="character cap; 0 or less means no limit")
     ap.add_argument("--text", default=None)
     ap.add_argument("--index", default=None,
                     help="write 'byte-offset<TAB>text' lines here for synced display")
