@@ -88,6 +88,11 @@ INLINE = [
     (re.compile(r"^\s{0,3}#{1,6}\s*"), ""),                   # heading marker
     (re.compile(r"^\s*[-*+]\s+"), ""),                        # bullet marker
     (re.compile(r"^\s*\d+\.\s+"), ""),                        # numbered marker
+    (re.compile(r"(?<=\d)\s*\*\s*(?=\d)"), " times "),      # 2 * 3, before the catch-all
+    # Catch-all: emphasis is matched per line, so bold spanning a line break or
+    # containing a literal star leaves markers behind. Anything surviving here is
+    # punctuation, never a word, and must not reach the voice as "asterisk".
+    (re.compile(r"\*+"), ""),
 ]
 
 
