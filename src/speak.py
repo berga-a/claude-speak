@@ -32,6 +32,29 @@ def project_transcript(cwd: Path) -> Path:
     return max(files, key=lambda f: f.stat().st_mtime)
 
 
+# Tool calls whose arguments are prose meant for the user, not machine input.
+SPOKEN_TOOL_ARGS = {"ExitPlanMode": "plan"}
+
+
+def readable_parts(content):
+    """Prose from an assistant message: text blocks plus user-facing tool arguments.
+
+    A plan is not a text block — it is the `plan` argument of an ExitPlanMode
+    call — so reading only text blocks silently skips it.
+    """
+    for c in content:
+        if not isinstance(c, dict):
+            continue
+        if c.get("type") == "text":
+            yield c.get("text", "")
+        elif c.get("type") == "tool_use":
+            field = SPOKEN_TOOL_ARGS.get(c.get("name"))
+            if field:
+                value = (c.get("input") or {}).get(field)
+                if isinstance(value, str):
+                    yield value
+
+
 def nth_reply(transcript: Path, nth: int) -> str:
     """nth == 1 is the most recent assistant message containing prose."""
     found = 0
@@ -42,8 +65,7 @@ def nth_reply(transcript: Path, nth: int) -> str:
             continue
         if rec.get("type") != "assistant" or rec.get("isSidechain"):
             continue
-        parts = [c.get("text", "") for c in rec.get("message", {}).get("content", [])
-                 if isinstance(c, dict) and c.get("type") == "text"]
+        parts = list(readable_parts(rec.get("message", {}).get("content", [])))
         text = "\n".join(p for p in parts if p.strip())
         if text.strip():
             found += 1
