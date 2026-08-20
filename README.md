@@ -6,6 +6,11 @@ Read Claude Code's replies out loud, on demand — with a pause that actually pa
 
 Local neural TTS, no API keys, no audio leaving your machine.
 
+> **This tool is entirely vibe coded with Claude.** Every line of it — the shell driver,
+> the Python, the tests and this README — was written by Claude Code from conversation,
+> not typed by hand. It is used daily and the test suite is real, but read it with that
+> in mind before depending on it.
+
 ```
 /speak            read the last reply
 /speak pause      hold it, exactly mid-word
@@ -21,16 +26,12 @@ Local neural TTS, no API keys, no audio leaving your machine.
 
 Every invocation reports how long it will take: `speaking [kokoro] 990 chars, ~1m0s`.
 
-## Why another one
+## What it does
 
-Most Claude Code TTS tools are `Stop` hooks: every reply is spoken, automatically.
-That is great until you are reading along faster than it talks.
+`claude-speak` is a command, not an automatic `Stop` hook: nothing is spoken until you
+ask for it.
 
-`claude-speak` is a **command**. Nothing is spoken until you ask for it, and once it
-is speaking you stay in control:
-
-- **A real pause.** Not "stop and restart the sentence" — playback holds at the exact
-  sample and continues from there.
+- **A real pause.** Playback holds at the exact sample and continues from there.
 - **Text synced to audio.** `follow` prints each sentence at the moment you hear it.
 - **Markdown that sounds like speech.** Inline code is read as words; code blocks and
   tables become a short silence instead of being spelled out.
@@ -66,16 +67,13 @@ the audio it labels is handed over — which is why the text tracks the voice.
 
 ### The pause
 
-The obvious implementation, `SIGSTOP` on the player, is wrong. Freezing the process does
-not stop the sound device: its DMA ring buffer keeps cycling whatever it was last given,
-which you hear as a high-frequency stutter of the final few milliseconds.
+Pausing keeps the audio device fed. On `SIGUSR1` the gate stops forwarding samples and
+writes zeros instead, holding the real audio in the pipe; on `SIGUSR2` it resumes at the
+exact byte. The device is never starved, so playback holds cleanly and continues
+mid-word.
 
-So pausing means **keeping the device fed**. On `SIGUSR1` the gate stops forwarding real
-samples and writes zeros instead; the audio waits in the pipe. On `SIGUSR2` it resumes at
-the exact byte. The player never starves, so there is nothing to stutter.
-
-This also self-throttles: the player blocks when its buffer is full, so the silence loop
-paces itself to realtime rather than spinning.
+The loop is self-throttling: the player blocks once its buffer is full, so writing
+silence paces itself to realtime.
 
 ## Engines
 
@@ -170,4 +168,4 @@ Speech by [piper](https://github.com/OHF-Voice/piper1-gpl) (GPL) and
 [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) (Apache-2.0), both installed at setup
 time rather than vendored here.
 
-MIT licensed — see [LICENSE](LICENSE).
+Written end to end by Claude Code. MIT licensed — see [LICENSE](LICENSE).
