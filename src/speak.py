@@ -20,7 +20,17 @@ PAUSE_BLOCK = 2.0  # seconds of silence standing in for a code block / table
 # a sentence taking six seconds to synthesise, against roughly a second and a half
 # of audio buffered downstream, leaves the player starved for the difference --
 # heard as a long stall, often mid-phrase since a colon also ends a sentence.
-PREFETCH = 3
+PREFETCH = 12
+
+# Long sentences are rendered in clause-sized pieces. A single six-second render
+# cannot be started early enough to hide behind a short preceding sentence, so
+# coarse units stall at the beginning of a reply before any lead is built up.
+RENDER_CHUNK = 100
+
+# Seconds of audio banked before playback starts. Rendering outruns playback, but
+# only once it is under way: starting immediately leaves the opening seconds with
+# no cushion, which is where every remaining stall was measured.
+PREROLL = float(os.environ.get("CLAUDE_SPEAK_PREROLL", "3.0"))
 
 # Measured on a 1200-character sample at speed 1.0; used only for the up-front
 # duration estimate, since the true length is not known until synthesis is done.
@@ -196,6 +206,22 @@ def sentences(text):
     return [s for s in re.split(r"(?<=[.!?:])\s+", text) if s.strip()]
 
 
+def clauses(sentence):
+    """Split an over-long sentence at clause boundaries, for smoother rendering."""
+    if len(sentence) <= RENDER_CHUNK:
+        return [sentence]
+    parts, current = [], ""
+    for piece in re.split(r"(?<=[,;:—–])\s+", sentence):
+        if current and len(current) + len(piece) + 1 > RENDER_CHUNK:
+            parts.append(current)
+            current = piece
+        else:
+            current = f"{current} {piece}".strip()
+    if current:
+        parts.append(current)
+    return parts
+
+
 # ---------- synthesis ----------
 
 def main():
@@ -261,7 +287,8 @@ def main():
                 yield "...", (lambda v=val: b"\0" * (int(rate * v) * 2))
             else:
                 for sentence in sentences(val):
-                    yield sentence, (lambda t=sentence: render(t))
+                    for chunk in clauses(sentence):
+                        yield chunk, (lambda t=chunk: render(t))
 
     q = queue.Queue(maxsize=PREFETCH)
 
@@ -277,6 +304,17 @@ def main():
     thread = threading.Thread(target=produce, daemon=True)
     thread.start()
 
+    def emit(label, pcm):
+        nonlocal written
+        mark(label)                             # index at write time, not render time
+        out.write(pcm)
+        out.flush()
+        written += len(pcm)
+
+    banked, banked_bytes = [], 0
+    target = int(PREROLL * rate) * 2
+    filling = True
+
     while True:
         item = q.get()
         if item is None:
@@ -284,10 +322,20 @@ def main():
         label, pcm, exc = item
         if exc is not None:
             raise exc
-        mark(label)                             # index at write time, not render time
-        out.write(pcm)
-        out.flush()
-        written += len(pcm)
+        if filling:
+            banked.append((label, pcm))
+            banked_bytes += len(pcm)
+            if banked_bytes < target:
+                continue
+            filling = False
+            for held in banked:
+                emit(*held)
+            banked = []
+            continue
+        emit(label, pcm)
+
+    for held in banked:                         # reply shorter than the pre-roll
+        emit(*held)
 
     if index:
         index.write(f"{written}\t\n")

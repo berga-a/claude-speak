@@ -133,12 +133,16 @@ stutter. piper has room to spare.
 | `CLAUDE_SPEAK_SPEED` | `1.0` | >1 faster, <1 slower |
 | `CLAUDE_SPEAK_MAX` | `0` | character cap; `0` reads the whole reply |
 | `CLAUDE_SPEAK_QUIET` | unset | suppress echoing the text in the command output |
+| `CLAUDE_SPEAK_PREROLL` | `3.0` | seconds of audio banked before playback starts |
 
 ## Limitations
 
 - Reads the transcript from disk, so it speaks whatever was last written — it cannot
   stream a reply as it is being generated.
 - The synced text lags by the player's buffer (~300 ms).
+- Playback starts about 2.5s after the command, the pre-roll that keeps the opening
+  seconds from stalling. Lower `CLAUDE_SPEAK_PREROLL` to start sooner, at the risk of a
+  gap early in the reply.
 - Linux is the tested platform. macOS should work through `sox` or `ffplay` but is
   untested.
 - `-n` counts assistant replies, and short acknowledgements count as replies.

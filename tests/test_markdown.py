@@ -48,3 +48,31 @@ def test_headings_and_bullets_lose_their_markers(spoken):
     out = spoken("## Title\n\n- first\n- second")
     assert "#" not in out and "- " not in out
     assert "Title" in out
+
+
+@pytest.mark.parametrize("sentence,expected", [
+    ("Short one.", 1),
+    ("A" * 99, 1),
+])
+def test_short_sentences_render_as_one_unit(sentence, expected):
+    import speak
+    assert len(speak.clauses(sentence)) == expected
+
+
+def test_long_sentences_are_split_for_rendering():
+    """Coarse render units stall playback before any lead is built up."""
+    import speak
+    long_s = ("This clause is the first of several, and here is the second one, "
+              "followed by a third that keeps going, then a fourth to be sure, "
+              "and finally a fifth clause that pushes it well past the limit.")
+    parts = speak.clauses(long_s)
+    assert len(parts) > 1
+    assert all(len(p) <= speak.RENDER_CHUNK + 40 for p in parts)
+    assert " ".join(parts) == long_s          # nothing lost or duplicated
+
+
+def test_splitting_happens_at_clause_boundaries():
+    import speak
+    long_s = "First part here, second part here, third part here, " * 4
+    for part in speak.clauses(long_s)[:-1]:
+        assert part.rstrip().endswith(","), f"split mid-clause: {part!r}"
