@@ -2,9 +2,10 @@
 
 [![tests](https://github.com/berga-a/claude-speak/actions/workflows/tests.yml/badge.svg)](https://github.com/berga-a/claude-speak/actions/workflows/tests.yml)
 
-Read Claude Code's replies out loud, on demand — with a pause that actually pauses.
+Read Claude Code's replies out loud, on demand.
 
-Local neural TTS, no API keys, no audio leaving your machine.
+Sample-accurate pause and resume, markdown rendered for the ear, and the spoken text
+tracked against the audio. Local neural TTS — no API keys, no audio leaving your machine.
 
 > **This tool is entirely vibe coded with Claude.** Every line of it — the shell driver,
 > the Python, the tests and this README — was written by Claude Code from conversation,
@@ -37,6 +38,23 @@ ask for it.
 - **Markdown that sounds like speech.** Inline code is read as words; code blocks and
   tables become a short silence instead of being spelled out.
 - **Fully local.** piper or Kokoro, running offline.
+
+## Accessibility
+
+Text-to-speech is well established as an access support for readers with dyslexia and
+other reading difficulties, where it bypasses decoding rather than teaching it
+([Young et al., 2019](https://doi.org/10.1177/0162643418786047);
+[Nordström et al., five-year follow-up](https://www.tandfonline.com/doi/full/10.1080/17483107.2022.2161647)).
+That is the use this tool is most defensibly good for, alongside working eyes-free —
+listening to a reply while looking at something else.
+
+It is worth being clear about what it will not do. Listening is slower than reading:
+narration lands around 175 words per minute at the default speed, against 250–400 for
+silent reading, so `CLAUDE_SPEAK_SPEED=1.5` is closer to parity if throughput is what you
+are after. And reading along with identical narration is not free — the
+[redundancy effect](https://pmc.ncbi.nlm.nih.gov/articles/PMC6084336/) describes
+duplicated visual and spoken text competing for the same attention. No claim is made here
+about learning faster or remembering more.
 
 ## Install
 
