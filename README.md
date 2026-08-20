@@ -17,7 +17,7 @@ Local neural TTS, no API keys, no audio leaving your machine.
 /speak resume     continue from the same sample
 /speak stop       abandon it
 /speak -n 3       read an earlier reply
-/speak follow     watch the text scroll in time with the audio
+/speak follow     print the text spoken so far
 /speak status     is it speaking, and where has it got to
 /speak engine kokoro   switch engine, persistently
 ```
@@ -32,7 +32,8 @@ Every invocation reports how long it will take: `speaking [kokoro] 990 chars, ~1
 ask for it.
 
 - **A real pause.** Playback holds at the exact sample and continues from there.
-- **Text synced to audio.** `follow` prints each sentence at the moment you hear it.
+- **Text tracked against audio.** Each sentence is timestamped to the byte of audio it
+  labels, so `follow` shows exactly how far the voice has got.
 - **Markdown that sounds like speech.** Inline code is read as words; code blocks and
   tables become a short silence instead of being spelled out.
 - **Fully local.** piper or Kokoro, running offline.
@@ -64,6 +65,19 @@ index mapping byte offsets to the text at that offset.
 
 `gate.py` pumps that PCM into the system player and uses the index to print each line as
 the audio it labels is handed over — which is why the text tracks the voice.
+
+### Following along
+
+`follow` behaves differently depending on where it runs, because a slash command reads
+its output once and cannot receive a live stream.
+
+| context | behaviour |
+|---|---|
+| a terminal | tails live — each line appears as you hear it |
+| `/speak follow` while speaking | prints the text spoken so far, then exits |
+| `/speak follow` when idle | prints `idle — nothing playing` |
+
+For a live scroll, run `claude-speak follow` in a second terminal.
 
 ### The pause
 
