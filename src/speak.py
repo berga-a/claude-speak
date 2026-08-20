@@ -8,11 +8,19 @@ audio so a downstream player can show each line as it is actually heard.
 import argparse
 import json
 import os
+import queue
 import re
 import sys
+import threading
 from pathlib import Path
 
 PAUSE_BLOCK = 2.0  # seconds of silence standing in for a code block / table
+
+# Sentences are rendered ahead of playback. Without this the pipeline is serial:
+# a sentence taking six seconds to synthesise, against roughly a second and a half
+# of audio buffered downstream, leaves the player starved for the difference --
+# heard as a long stall, often mid-phrase since a colon also ends a sentence.
+PREFETCH = 3
 
 # Measured on a 1200-character sample at speed 1.0; used only for the up-front
 # duration estimate, since the true length is not known until synthesis is done.
@@ -246,20 +254,40 @@ def main():
     secs = round(spoken / (CHARS_PER_SEC[a.engine] * a.speed) + gaps)
     print(f"rate={rate} chars={spoken} total={total} secs={secs}", file=sys.stderr)
 
-    for kind, val in segs:
-        if kind == "pause":
-            mark("...")
-            pcm = b"\0" * (int(rate * val) * 2)
-            out.write(pcm)
-            out.flush()
-            written += len(pcm)
-            continue
-        for sentence in sentences(val):
-            mark(sentence)
-            pcm = render(sentence)
-            out.write(pcm)
-            out.flush()
-            written += len(pcm)
+    # Flatten to (label, renderer) so silence and speech queue identically.
+    def work():
+        for kind, val in segs:
+            if kind == "pause":
+                yield "...", (lambda v=val: b"\0" * (int(rate * v) * 2))
+            else:
+                for sentence in sentences(val):
+                    yield sentence, (lambda t=sentence: render(t))
+
+    q = queue.Queue(maxsize=PREFETCH)
+
+    def produce():
+        try:
+            for label, make in work():
+                q.put((label, make(), None))
+        except BaseException as exc:            # surface it on the consumer side
+            q.put((None, None, exc))
+        else:
+            q.put(None)
+
+    thread = threading.Thread(target=produce, daemon=True)
+    thread.start()
+
+    while True:
+        item = q.get()
+        if item is None:
+            break
+        label, pcm, exc = item
+        if exc is not None:
+            raise exc
+        mark(label)                             # index at write time, not render time
+        out.write(pcm)
+        out.flush()
+        written += len(pcm)
 
     if index:
         index.write(f"{written}\t\n")
