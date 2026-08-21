@@ -21,6 +21,7 @@ tracked against the audio. Local neural TTS — no API keys, no audio leaving yo
 /speak follow     print the text spoken so far
 /speak status     is it speaking, and where has it got to
 /speak engine kokoro   switch engine, persistently
+/speak speed 1.35      set the reading speed, persistently
 ```
 
 `resume` accepts `unpause`, and `stop` accepts `off`.
@@ -122,6 +123,10 @@ silence paces itself to realtime.
 `CLAUDE_SPEAK_ENGINE=kokoro` overrides for one invocation. piper is the default
 on a fresh install, since it is the one `install.sh` sets up without `--kokoro`.
 
+`claude-speak speed 1.35` works the same way (stored in `.speed`, accepted range
+0.5-2.0), with `CLAUDE_SPEAK_SPEED` overriding for one invocation. Both engines
+honour it, and the up-front duration estimate accounts for it.
+
 Kokoro's 1.5x margin over realtime is thin: start a heavy build mid-sentence and it can
 stutter. piper has room to spare.
 
@@ -132,7 +137,7 @@ stutter. piper has room to spare.
 | `CLAUDE_SPEAK_ENGINE` | `.engine`, else `piper` | `piper` or `kokoro` |
 | `CLAUDE_SPEAK_VOICE` | `af_heart` | Kokoro voice name |
 | `CLAUDE_SPEAK_MODEL` | bundled | path to a piper `.onnx` |
-| `CLAUDE_SPEAK_SPEED` | `1.0` | >1 faster, <1 slower |
+| `CLAUDE_SPEAK_SPEED` | `.speed`, else `1.0` | >1 faster, <1 slower |
 | `CLAUDE_SPEAK_MAX` | `0` | character cap; `0` reads the whole reply |
 | `CLAUDE_SPEAK_QUIET` | unset | suppress echoing the text in the command output |
 | `CLAUDE_SPEAK_PREROLL` | `3.0` | seconds of audio banked before playback starts |

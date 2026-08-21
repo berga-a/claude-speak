@@ -12,7 +12,7 @@ set -u
 ROOT=$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/.." && pwd)
 CFG=${CLAUDE_CONFIG_DIR:-$HOME/.claude}
 ENGINE=${CLAUDE_SPEAK_ENGINE:-$(cat "$ROOT/.engine" 2>/dev/null || echo piper)}
-SPEED=${CLAUDE_SPEAK_SPEED:-1.0}
+SPEED=${CLAUDE_SPEAK_SPEED:-$(cat "$ROOT/.speed" 2>/dev/null || echo 1.0)}
 MAX=${CLAUDE_SPEAK_MAX:-0}   # 0 = no cap; stop/pause are the real controls
 STATE=${XDG_RUNTIME_DIR:-/tmp}/claude-speak
 PIDF=$STATE/pids
@@ -49,6 +49,17 @@ case "${1:-}" in
                    *) echo "unknown engine: $2" >&2; exit 1 ;; esac
     else
       echo "$ENGINE"
+    fi
+    exit 0 ;;
+  speed)
+    if [ -n "${2:-}" ]; then
+      if awk -v s="$2" 'BEGIN{exit !(s+0==s && s>=0.5 && s<=2.0)}' </dev/null; then
+        echo "$2" > "$ROOT/.speed"; echo "speed set to $2"
+      else
+        echo "speed must be a number between 0.5 and 2.0" >&2; exit 1
+      fi
+    else
+      echo "$SPEED"
     fi
     exit 0 ;;
   status)
