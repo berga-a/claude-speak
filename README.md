@@ -77,7 +77,9 @@ speak.py                    gate.py                aplay / pw-cat / sox
   index: offset -> text       silence while paused
 ```
 
-`speak.py` finds the session transcript, pulls the nth assistant reply, converts
+`speak.py` finds the transcript of the calling session — identified by
+`CLAUDE_CODE_SESSION_ID`, never by picking the newest file, since several sessions can
+share one project directory — pulls the nth assistant reply, converts
 markdown into speakable segments, and streams raw PCM. Alongside the audio it writes an
 index mapping byte offsets to the text at that offset.
 
@@ -139,6 +141,9 @@ stutter. piper has room to spare.
 
 - Reads the transcript from disk, so it speaks whatever was last written — it cannot
   stream a reply as it is being generated.
+- Reads only the conversation it was triggered from. With no reply there yet, or when
+  the session cannot be identified, it reports `nothing to read` rather than falling
+  back to another session.
 - The synced text lags by the player's buffer (~300 ms).
 - Playback starts about 2.5s after the command, the pre-roll that keeps the opening
   seconds from stalling. Lower `CLAUDE_SPEAK_PREROLL` to start sooner, at the risk of a
