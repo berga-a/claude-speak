@@ -100,6 +100,10 @@ case "$line" in
           fi
           echo "speaking [$ENGINE] ${2#chars=} of ${3#total=} chars, $dur" ;;
   "")     echo "speaking [$ENGINE] (starting)"; exit 0 ;;
+  "nothing to read")
+          # The calling conversation has no reply yet. A normal outcome, not an
+          # error — same class as "nothing playing".
+          echo "$line"; exit 0 ;;
   *)      echo "$line" >&2; exit 1 ;;
 esac
 

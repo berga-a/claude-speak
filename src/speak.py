@@ -43,15 +43,32 @@ def config_dir() -> Path:
 
 # ---------- transcript ----------
 
-def project_transcript(cwd: Path) -> Path:
+# Reported when the calling conversation has nothing to read out yet. Not an
+# error: the wrapper prints it as a normal outcome, like "nothing playing".
+NOTHING_TO_READ = "nothing to read"
+
+
+def project_transcript(cwd: Path) -> Path | None:
+    """The transcript of the conversation this call was triggered from.
+
+    Only ever the caller's own transcript. Several Claude Code sessions can
+    share one project directory, so the most recently written transcript there
+    belongs to whichever session replied last — not necessarily this one. With
+    no session to attribute the call to, there is no conversation to read.
+    """
+    sid = os.environ.get("CLAUDE_CODE_SESSION_ID")
+    if not sid:
+        return None
+    root = config_dir() / "projects"
     slug = re.sub(r"[^a-zA-Z0-9]", "-", str(cwd))
-    d = config_dir() / "projects" / slug
-    if not d.is_dir():
-        d = config_dir() / "projects"
-    files = list(d.glob("**/*.jsonl"))
-    if not files:
-        sys.exit(f"no transcript under {d}")
-    return max(files, key=lambda f: f.stat().st_mtime)
+    own = root / slug / f"{sid}.jsonl"
+    if own.is_file():
+        return own
+    # The session may have been started from a different directory than the one
+    # this call runs in, which puts its transcript under another project slug.
+    for cand in sorted(root.glob(f"**/{sid}.jsonl")):
+        return cand
+    return None
 
 
 # Tool calls whose arguments are prose meant for the user, not machine input.
@@ -93,7 +110,7 @@ def nth_reply(transcript: Path, nth: int) -> str:
             found += 1
             if found == nth:
                 return text
-    sys.exit("no assistant text found")
+    sys.exit(NOTHING_TO_READ)
 
 
 # ---------- markdown -> segments ----------
@@ -239,7 +256,13 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
-    md = a.text if a.text else nth_reply(project_transcript(Path.cwd()), a.nth)
+    if a.text:
+        md = a.text
+    else:
+        transcript = project_transcript(Path.cwd())
+        if transcript is None:
+            sys.exit(NOTHING_TO_READ)
+        md = nth_reply(transcript, a.nth)
     segs, spoken, total = cap(segments(md), a.max)
 
     if a.dry_run:

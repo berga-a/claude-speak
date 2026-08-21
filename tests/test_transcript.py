@@ -1,5 +1,7 @@
 """Which parts of a session transcript get read, and in what order."""
 import json
+import os
+from pathlib import Path
 
 import pytest
 
@@ -59,7 +61,64 @@ def test_multiple_text_blocks_in_one_reply_are_joined(transcript, assistant, tex
     assert speak.nth_reply(f, 1) == "first\nsecond"
 
 
-def test_asking_past_the_end_exits_rather_than_crashing(transcript, assistant, text_block):
+def test_asking_past_the_end_reports_nothing_to_read(transcript, assistant, text_block):
     f = transcript([assistant(text_block("only one"))])
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as e:
         speak.nth_reply(f, 5)
+    assert str(e.value) == speak.NOTHING_TO_READ
+
+
+# ---------- which conversation gets read ----------
+
+@pytest.fixture
+def projects(tmp_path, monkeypatch):
+    """A config dir holding one project slug; returns (write_session, cwd)."""
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    cwd = Path("/work/repo")
+    slug = "-work-repo"
+    d = tmp_path / "projects" / slug
+    d.mkdir(parents=True)
+
+    def write(session_id, mtime=None):
+        f = d / f"{session_id}.jsonl"
+        f.write_text(json.dumps(
+            {"type": "assistant", "message": {"content": [
+                {"type": "text", "text": session_id}]}}))
+        if mtime is not None:
+            os.utime(f, (mtime, mtime))
+        return f
+    return write, cwd, tmp_path
+
+
+def test_reads_the_calling_session_not_the_most_recent(projects, monkeypatch):
+    """Two sessions share a project directory; the other one replied last."""
+    write, cwd, _ = projects
+    mine = write("mine", mtime=1000)
+    write("theirs", mtime=2000)
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "mine")
+    assert speak.project_transcript(cwd) == mine
+
+
+def test_no_session_id_means_no_conversation_to_read(projects, monkeypatch):
+    write, cwd, _ = projects
+    write("theirs")
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+    assert speak.project_transcript(cwd) is None
+
+
+def test_session_without_a_transcript_yet_reads_nothing(projects, monkeypatch):
+    write, cwd, _ = projects
+    write("theirs")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "brand-new")
+    assert speak.project_transcript(cwd) is None
+
+
+def test_session_started_in_another_directory_is_still_found(projects, monkeypatch):
+    """The slug follows the session's start directory, not the current one."""
+    write, cwd, root = projects
+    elsewhere = root / "projects" / "-other-place"
+    elsewhere.mkdir(parents=True)
+    mine = elsewhere / "mine.jsonl"
+    mine.write_text("")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "mine")
+    assert speak.project_transcript(cwd) == mine
